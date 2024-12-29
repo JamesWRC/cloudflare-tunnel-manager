@@ -1,0 +1,29 @@
+tunnel: your-tunnel-id
+credentials-file: /root/.cloudflared/credentials.json
+
+warp-routing:
+  enabled: true
+
+ingress:
+  - hostname: scraper-hub-publish.example.com
+    service: tcp://selenium-hub:4442
+    originRequest:
+      connectTimeout: 10s
+      httpHostHeader: scraper-hub-publish.example.com
+      noTLSVerify: true
+  - hostname: scraper-hub-subscribe.example.com
+    service: tcp://selenium-hub:4443
+    originRequest:
+      connectTimeout: 9999s
+      httpHostHeader:  scraper-hub-subscribe.example.com
+      noTLSVerify: true
+  - hostname: scraper-hub.example.com
+    service: http://selenium-hub:4444
+    originRequest:
+      connectTimeout: 9999s
+      httpHostHeader: scraper-hub.example.com 
+      noTLSVerify: true
+  - hostname: scraper-hub-test.example.com
+    service: tcp://selenium-node:5555
+  - service: http_status:404
+

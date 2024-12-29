@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  cloudflare-tunnel-manager:
+    image: jameswrc/cloudflare-tunnel-manager
+    container_name: cloudflare-tunnel-manager
+    environment:
+      - TUNNEL_NAME=
+      - ACCOUNT_ID=
+      - TUNNEL_ID=
+      - TUNNEL_TOKEN=
+      - CLOUDFLARE_API_TOKEN=
+      - LOGGING_LEVEL=INFO # optional, default is INFO, possible values are DEBUG, INFO, WARNING, ERROR, CRITICAL
+    volumes:
+      # config.yml file and cert.pem will be read from the /root/.cloudflared folder. You cannot change the directory path.
+      - ./cloudflared:/root/.cloudflared/ 

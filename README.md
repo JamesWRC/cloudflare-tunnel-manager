@@ -93,7 +93,6 @@ docker run -d \
   -e TUNNEL_TOKEN="your-tunnel-token" \
   -e CLOUDFLARE_API_TOKEN="your-cloudflare-api-token" \
   -e LOGGING_LEVEL="ERROR" \ # Optional, default is INFO
-  -e WARP_ROUTING="false" \ # Optional, default is false
   -v ./cloudflared:/root/.cloudflared/ \
   jameswrc/cloudflare-tunnel-manager
 ```

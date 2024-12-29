@@ -233,4 +233,8 @@ if __name__ == "__main__":
     # Update Cloudflare API configuration for this hostname
     update_tunnels_config(warp_routing, ingress_configs)
 
+    # Create 'ready.txt' file to indicate the script has completed
+    with open("/root/ready.txt", "w") as f:
+        f.write("Configuration updated successfully. Starting Cloudflare Tunnel.")
+
     logging.info("Configuration updated successfully. Starting Cloudflare Tunnel.")

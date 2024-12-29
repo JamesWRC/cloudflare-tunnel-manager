@@ -14,3 +14,10 @@ services:
     volumes:
       # config.yml file and cert.pem will be read from the /root/.cloudflared folder. You cannot change the directory path.
       - ./cloudflared:/root/.cloudflared/ 
+    healthcheck:
+      test: ["CMD", "sh", "-c", "[ -f /root/ready.txt ] || exit 1"] # Check if the ready.txt file exists
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 10s
+    restart: always

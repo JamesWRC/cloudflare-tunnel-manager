@@ -93,7 +93,9 @@ docker run -d \
   -e TUNNEL_TOKEN="your-tunnel-token" \
   -e CLOUDFLARE_API_TOKEN="your-cloudflare-api-token" \
   -e LOGGING_LEVEL="ERROR" \ # Optional, default is INFO
+  -e CONFIG_CHANGE_CHECK_INTERVAL="60" \ # optional, default is 60s, remove this to not check for file changes
   -v ./cloudflared:/root/.cloudflared/ \
+  -v ./logs:/logs/ \
   jameswrc/cloudflare-tunnel-manager
 ```
 or simply
@@ -111,5 +113,15 @@ docker compose up
 | `TUNNEL_TOKEN`         | The token for authenticating your Cloudflare Tunnel.                                          | None          | Yes      |
 | `CLOUDFLARE_API_TOKEN` | The API token with `Tunnel:Edit` permission for managing DNS and tunnel configurations.       | None          | Yes      |
 | `LOGGING_LEVEL`        | The logging verbosity level. Possible values: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.| `INFO`        | No       |
+| `CONFIG_CHANGE_CHECK_INTERVAL` | Will monitor for config changes, and update every x seconds. Dont set this if you dont want to update on file changes. | 60 seconds        | No       |
 | `CF_TUNNEL_OPTS`       | OPTIONAL - Sets the `tunnel run` cli opts. Can be overwritten at runtime                      | --config /root/.cloudflared/config.yml | No       |
 | `CLOUDFLARED_CMD`       |  OPTIONAL - Sets the command to be run after the `create_dns_and_update_config.py` script is run. Can be overwritten at runtime | cloudflared tunnel ${CF_TUNNEL_OPTS} run | No       |
+
+
+
+## Updates
+### Tag 2025.04.19
+- Added logging to file. All logs, max 20mb per file, with max 10 rotations once the files hits 20mb. Logs are saved to the `/logs` dir. Map that however you like
+- *disabled by default*. Added a feature that monitors for config changes. Provide the `CONFIG_CHANGE_CHECK_INTERVAL` environment variable with a positive integer, and the script will check for changes in the config. Set the value to the number of seconds between checks.
+> [!WARNING]  
+> The less time you specify the more resources will be consumed, as it will check more. Settings 0 will result in a 'busy wait' (constantly checking).

@@ -1,3 +1,7 @@
+import hashlib
+from logging.handlers import RotatingFileHandler
+from multiprocessing import Process
+import time
 import yaml
 import subprocess
 import requests
@@ -16,9 +20,21 @@ CLOUDFLARE_API_TOKEN = os.getenv("CLOUDFLARE_API_TOKEN")
 LOGGING_LEVEL = os.getenv("LOGGING_LEVEL", "INFO").upper()  # Default to INFO level
 
 # Configure logging
+LOG_FILE = "/logs/cloudflare_tunnel_manager.log"  # Path to the log file
+if not os.path.exists("/logs"):
+    os.makedirs("/logs")  # Create the logs directory if it doesn't exist
+# Create a rotating file handler
+file_handler = RotatingFileHandler(
+    LOG_FILE, maxBytes=20 * 1024 * 1024, backupCount=10  # 20 MB per file, 10 backups
+)
+file_handler.setLevel(LOGGING_LEVEL)
+file_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+
+# Configure the root logger
 logging.basicConfig(
     level=LOGGING_LEVEL,
-    format="%(asctime)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[file_handler, logging.StreamHandler()]  # Log to both file and console
 )
 
 logging.info("\t\t #### Cloudflare Tunnel Manager (CFTM) is starting... ####\t\t")
@@ -53,7 +69,7 @@ def parse_config(file_path: str) -> tuple:
         if "hostname" in rule:
             if rule["hostname"] in hostnames:
                 logging.error(f"Duplicate hostname found in config: {rule['hostname']}")
-                sys.exit(1)
+                continue
 
             hostnames.append(rule["hostname"])
 
@@ -82,7 +98,7 @@ def create_dns_entry(hostname: str) -> None:
         logging.debug(f"DNS entry created for {hostname}")
     except subprocess.CalledProcessError as e:
         logging.error(f"Failed to create DNS entry for {hostname}: {e}")
-        sys.exit(1)
+        return
 
 # Log changes in formatting
 def log_changed_formatting(key:str, original:str, formatted:str) -> None:
@@ -156,10 +172,10 @@ def update_tunnels_config(warp_routing:bool, ingress_configs: list) -> None:
 
     response = requests.put(api_url, headers=headers, json=payload)
     if response.status_code == 200:
-        logging.debug(f"Updated configuration for {hostname}: {response.json()}")
+        logging.debug(f"Updated configuration for hostnames: {response.json()}")
     else:
         logging.error(
-            f"Failed to update configuration for {hostname}: {response.status_code}, provided payload:\n{payload}\nresponse text:\n{response.text}"
+            f"Failed to update configuration: {response.status_code}, provided payload:\n{payload}\nresponse text:\n{response.text}"
         )
         
         sys.exit(1)
@@ -181,6 +197,70 @@ def cf_tunnel_login() -> None:
     except subprocess.CalledProcessError as e:
         logging.error(f"Failed to login to Cloudflare Tunnel: {e}")
         sys.exit(1)
+
+def hash_file(path, algo='sha256', chunk_size=8192) -> str:
+    """
+    Generate a hash for the file at the given path using the specified algorithm.
+    """
+    h = hashlib.new(algo)
+    with open(path, 'rb') as f:
+        while chunk := f.read(chunk_size):
+            h.update(chunk)
+    return h.hexdigest()
+
+def update_config(monitor_config_changes:bool) -> None:
+    # Get hash of the config file
+    curr_hash = hash_file(CONFIG_FILE)
+    first_run = True
+
+    file_check_interval = int(os.getenv('CONFIG_CHANGE_CHECK_INTERVAL', 60))
+    if monitor_config_changes:
+        logging.info(f"Monitoring {CONFIG_FILE} for changes every {file_check_interval} seconds...")
+    try:
+        while True:
+            if monitor_config_changes:
+                new_hash = hash_file(CONFIG_FILE)
+                if first_run or new_hash != curr_hash:
+                    logging.info(f"Config file hash changed: {curr_hash} -> {new_hash}")
+                    logging.info(f"Config file changed, updating configuration...")
+                    curr_hash = new_hash
+                else:
+                    time.sleep(file_check_interval)  # Sleep for a while before checking again
+                    continue
+            first_run = False
+            # Parse config.yml
+            warp_routing, hostnames, ingress_rules = parse_config(CONFIG_FILE)
+
+            # Process each hostname
+            ingress_configs = []
+            for hostname in list(hostnames):
+                # Create DNS entry
+                create_dns_entry(hostname)
+
+                # Find the configuration for this hostname
+                ingress_hostname_config = next(
+                    (rule for rule in ingress_rules if rule.get("hostname") == hostname), {}
+                )
+
+                # Add stuff for originRequest / warp-routing later if needed?
+
+                # Format configuration values
+                ingress_hostname_config = format_ingres_config_for_API(ingress_hostname_config)
+
+                ingress_configs.append(ingress_hostname_config)
+
+            # Merge ingress_configs so that rules without hostnames are included at the end
+            rules_without_hostnames = [rule for rule in ingress_rules if "hostname" not in rule]
+            ingress_configs += rules_without_hostnames # Append rules without hostnames to the end
+
+
+            # Update Cloudflare API configuration for this hostname
+            update_tunnels_config(warp_routing, ingress_configs)
+            logging.info(f"Updated configurations.")
+            if not monitor_config_changes:
+                break # Exit after one run if not monitoring for changes
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
 
 # Main script execution
 if __name__ == "__main__":
@@ -204,37 +284,20 @@ if __name__ == "__main__":
     # Login to Cloudflare Tunnel
     cf_tunnel_login()
 
-    # Parse config.yml
-    warp_routing, hostnames, ingress_rules = parse_config(CONFIG_FILE)
+    should_monitor = int(os.getenv('CONFIG_CHANGE_CHECK_INTERVAL', -1)) > 0
+    # Run initial configuration setup / update
+    update_config(False)
 
-    # Process each hostname
-    ingress_configs = []
-    for hostname in list(hostnames):
-        # Create DNS entry
-        create_dns_entry(hostname)
-
-        # Find the configuration for this hostname
-        ingress_hostname_config = next(
-            (rule for rule in ingress_rules if rule.get("hostname") == hostname), {}
-        )
-
-        # Add stuff for originRequest / warp-routing later if needed?
-
-        # Format configuration values
-        ingress_hostname_config = format_ingres_config_for_API(ingress_hostname_config)
-
-        ingress_configs.append(ingress_hostname_config)
-
-    # Merge ingress_configs so that rules without hostnames are included at the end
-    rules_without_hostnames = [rule for rule in ingress_rules if "hostname" not in rule]
-    ingress_configs += rules_without_hostnames # Append rules without hostnames to the end
-
-
-    # Update Cloudflare API configuration for this hostname
-    update_tunnels_config(warp_routing, ingress_configs)
+    # Start monitoring for config changes
+    p = Process(target=update_config, args=(should_monitor,))
+    p.daemon = False  # Important: ensure it's not a daemon
+    p.start()
 
     # Create 'ready.txt' file to indicate the script has completed
     with open("/root/ready.txt", "w") as f:
         f.write("Configuration updated successfully. Starting Cloudflare Tunnel.")
 
     logging.info("Configuration updated successfully. Starting Cloudflare Tunnel.")
+
+    if should_monitor:
+        os._exit(0)

@@ -1,5 +1,5 @@
 tunnel: your-tunnel-id
-credentials-file: /root/.cloudflared/credentials.json
+credentials-file: ~/.cloudflared/credentials.json
 
 warp-routing:
   enabled: true

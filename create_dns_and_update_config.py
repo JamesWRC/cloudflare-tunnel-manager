@@ -16,13 +16,15 @@ ACCOUNT_ID = os.getenv("ACCOUNT_ID")
 TUNNEL_ID = os.getenv("TUNNEL_ID")
 CLOUDFLARE_API_TOKEN = os.getenv("CLOUDFLARE_API_TOKEN")
 
+HOME_DIR = os.getenv("HOME")  # Default to /root if HOME is not set
+
 # OPTIONAL Environment variables
 LOGGING_LEVEL = os.getenv("LOGGING_LEVEL", "INFO").upper()  # Default to INFO level
 
 # Configure logging
-LOG_FILE = "/logs/cloudflare_tunnel_manager.log"  # Path to the log file
-if not os.path.exists("/logs"):
-    os.makedirs("/logs")  # Create the logs directory if it doesn't exist
+LOG_FILE = f"{HOME_DIR}/logs/cloudflare_tunnel_manager.log"  # Path to the log file
+if not os.path.exists(f"{HOME_DIR}/logs"):
+    os.makedirs(f"{HOME_DIR}/logs")  # Create the logs directory if it doesn't exist
 # Create a rotating file handler
 file_handler = RotatingFileHandler(
     LOG_FILE, maxBytes=20 * 1024 * 1024, backupCount=10  # 20 MB per file, 10 backups
@@ -46,8 +48,8 @@ if not os.getenv("TUNNEL_TOKEN"):
 
 
 # Constants
-CONFIG_FILE = "/root/.cloudflared/config.yml"
-CERT_FILE = "/root/.cloudflared/cert.pem"
+CONFIG_FILE = f"{HOME_DIR}/.cloudflared/config.yml"
+CERT_FILE = f"{HOME_DIR}/.cloudflared/cert.pem"
 
 # Function to parse config.yml
 def parse_config(file_path: str) -> tuple:
@@ -276,6 +278,10 @@ if __name__ == "__main__":
             logging.error("CLOUDFLARE_API_TOKEN environment variable is missing.")
         sys.exit(1)
 
+    READY_FILE = f"{HOME_DIR}/ready.txt"
+    if os.path.exists(READY_FILE):
+        os.remove(READY_FILE)  # Remove the ready.txt file if it exists
+
     # Ensure config file exists
     if not os.path.exists(CONFIG_FILE):
         logging.error(f"Config file {CONFIG_FILE} not found.")
@@ -294,7 +300,7 @@ if __name__ == "__main__":
     p.start()
 
     # Create 'ready.txt' file to indicate the script has completed
-    with open("/root/ready.txt", "w") as f:
+    with open(READY_FILE, "w") as f:
         f.write("Configuration updated successfully. Starting Cloudflare Tunnel.")
 
     logging.info("Configuration updated successfully. Starting Cloudflare Tunnel.")

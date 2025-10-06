@@ -22,21 +22,22 @@ HOME_DIR = os.getenv("HOME")  # Default to /root if HOME is not set
 LOGGING_LEVEL = os.getenv("LOGGING_LEVEL", "INFO").upper()  # Default to INFO level
 
 # Configure logging
-LOG_FILE = f"{HOME_DIR}/logs/cloudflare_tunnel_manager.log"  # Path to the log file
-if not os.path.exists(f"{HOME_DIR}/logs"):
-    os.makedirs(f"{HOME_DIR}/logs")  # Create the logs directory if it doesn't exist
-# Create a rotating file handler
-file_handler = RotatingFileHandler(
-    LOG_FILE, maxBytes=20 * 1024 * 1024, backupCount=10  # 20 MB per file, 10 backups
-)
-file_handler.setLevel(LOGGING_LEVEL)
-file_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+# LOG_FILE = f"{HOME_DIR}/logs/cloudflare_tunnel_manager.log"  # Path to the log file
+# if not os.path.exists(f"{HOME_DIR}/logs"):
+#     os.makedirs(f"{HOME_DIR}/logs")  # Create the logs directory if it doesn't exist
+# # Create a rotating file handler
+# file_handler = RotatingFileHandler(
+#     LOG_FILE, maxBytes=20 * 1024 * 1024, backupCount=10  # 20 MB per file, 10 backups
+# )
+# file_handler.setLevel(LOGGING_LEVEL)
+# file_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
 
 # Configure the root logger
 logging.basicConfig(
     level=LOGGING_LEVEL,
     format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[file_handler, logging.StreamHandler()]  # Log to both file and console
+    handlers=[logging.StreamHandler()]  # Log to both file and console
+    # handlers=[file_handler, logging.StreamHandler()]  # Log to both file and console
 )
 
 logging.info("\t\t #### Cloudflare Tunnel Manager (CFTM) is starting... ####\t\t")

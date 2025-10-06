@@ -43,5 +43,5 @@ ENV PUID=1000 PGID=1000 HOME=/data
 # Our entrypoint will exec the python script as PUID:PGID
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+# ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD  ["/bin/sh", "-c", "python3 /app/create_dns_and_update_config.py && ${CLOUDFLARED_CMD}"]

@@ -279,7 +279,7 @@ if __name__ == "__main__":
             logging.error("CLOUDFLARE_API_TOKEN environment variable is missing.")
         sys.exit(1)
 
-    READY_FILE = f"{HOME_DIR}/ready.txt"
+    READY_FILE = f"{HOME_DIR}/.cloudflared/ready.txt"
     if os.path.exists(READY_FILE):
         os.remove(READY_FILE)  # Remove the ready.txt file if it exists
 
